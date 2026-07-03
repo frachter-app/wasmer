@@ -367,13 +367,27 @@ pub fn wptype_to_type(ty: wasmparser::ValType) -> WasmResult<Type> {
 }
 
 /// Converts a wasmparser ref type to a [`Type`].
+///
+/// NOTE (exnref spike, opfs-vfs#113): the WASM exception-handling proposal
+/// introduces `exnref` (and the associated tag section). Modules built with EH
+/// — e.g. `wasmer/edgejs-quickjs` — carry `exnref` inside their type section
+/// even though it never crosses the JS import/export boundary. The js backend's
+/// `Type` enum has no `exnref` variant, so instead of hard-failing we map any
+/// non-numeric/unrecognised ref type to `Type::ExternRef` as an OPAQUE
+/// placeholder. This keeps the signature table index-aligned (see
+/// `parse_type_section` / `parse_tag_section`, which reference signatures by
+/// index) and is safe as long as no such value is actually marshalled by the JS
+/// trampoline glue for a real host import/export — which is the case for
+/// internal EH plumbing.
 pub fn wpreftype_to_type(ty: wasmparser::RefType) -> WasmResult<Type> {
     if ty.is_extern_ref() {
         Ok(Type::ExternRef)
     } else if ty.is_func_ref() {
         Ok(Type::FuncRef)
     } else {
-        Err(format!("Unsupported ref type: {:?}", ty))
+        // exnref and any other GC/EH ref types: opaque placeholder rather than
+        // panic. See note above.
+        Ok(Type::ExternRef)
     }
 }
 
@@ -392,20 +406,18 @@ pub fn parse_type_section(
                 wasmparser::CompositeInnerType::Func(functype) => {
                     let params = functype.params();
                     let returns = functype.results();
+                    // exnref spike (opfs-vfs#113): propagate as WasmResult error
+                    // instead of `.expect()` panicking. `wptype_to_type` now maps
+                    // exnref/GC ref types to an opaque placeholder, so this only
+                    // errors on genuinely un-representable types.
                     let sig_params: Vec<Type> = params
                         .iter()
-                        .map(|ty| {
-                            wptype_to_type(*ty)
-                                .expect("only numeric types are supported in function signatures")
-                        })
-                        .collect();
+                        .map(|ty| wptype_to_type(*ty))
+                        .collect::<WasmResult<Vec<Type>>>()?;
                     let sig_returns: Vec<Type> = returns
                         .iter()
-                        .map(|ty| {
-                            wptype_to_type(*ty)
-                                .expect("only numeric types are supported in function signatures")
-                        })
-                        .collect();
+                        .map(|ty| wptype_to_type(*ty))
+                        .collect::<WasmResult<Vec<Type>>>()?;
                     let sig = FunctionType::new(sig_params, sig_returns);
                     module_info.declare_signature(sig)?;
                 }

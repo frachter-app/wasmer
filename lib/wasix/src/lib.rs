@@ -562,6 +562,11 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "path_unlink_file" => Function::new_typed_with_env(&mut store, env, path_unlink_file::<Memory32>),
         "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff::<Memory32>),
         "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory32>),
+        // proc_exit2: newer WASIX ABI name for proc_exit. Identical wasm signature
+        // (i32 exit code -> ()) and identical semantics (terminate the process with
+        // the given exit code). Registered so guests compiled against the newer WASIX
+        // ABI (e.g. wasmer/edgejs-quickjs) can resolve this import at instantiation.
+        "proc_exit2" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory32>),
         "proc_fork" => Function::new_typed_with_env(&mut store, env, proc_fork::<Memory32>),
         "proc_join" => Function::new_typed_with_env(&mut store, env, proc_join::<Memory32>),
         "proc_signal" => Function::new_typed_with_env(&mut store, env, proc_signal),
@@ -702,6 +707,8 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "path_unlink_file" => Function::new_typed_with_env(&mut store, env, path_unlink_file::<Memory64>),
         "poll_oneoff" => Function::new_typed_with_env(&mut store, env, poll_oneoff::<Memory64>),
         "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory64>),
+        // proc_exit2: newer WASIX ABI alias for proc_exit (i32 exit code -> ()).
+        "proc_exit2" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory64>),
         "proc_fork" => Function::new_typed_with_env(&mut store, env, proc_fork::<Memory64>),
         "proc_join" => Function::new_typed_with_env(&mut store, env, proc_join::<Memory64>),
         "proc_signal" => Function::new_typed_with_env(&mut store, env, proc_signal),
