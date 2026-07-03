@@ -1,0 +1,35 @@
+name: build-check
+
+# Minimal sanity check for the frachter-app fork: the two patched crates
+# (wasmer = exnref polyfill; wasmer-wasix = proc_exit2) must still compile.
+# This is the ONLY workflow on this fork — all inherited upstream CI was removed.
+# Disposable: delete this file if it proves too slow; publishing lives in
+# frachter-app/wasmer-js and does not depend on it.
+
+on:
+  push:
+    branches: [main-opfs]
+  pull_request:
+    branches: [main-opfs]
+  workflow_dispatch:
+
+concurrency:
+  group: build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: wasmer-build-check
+
+      - name: cargo build (patched crates)
+        run: cargo build -p wasmer -p wasmer-wasix
